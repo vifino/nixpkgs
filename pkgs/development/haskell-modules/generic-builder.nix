@@ -20,7 +20,10 @@
 # TODO enable shared libs for cross-compiling
 , enableSharedExecutables ? !isCross && (((ghc.isGhcjs or false) || stdenv.lib.versionOlder "7.7" ghc.version))
 , enableSharedLibraries ? !isCross && (((ghc.isGhcjs or false) || stdenv.lib.versionOlder "7.7" ghc.version))
-, enableSplitObjs ? !stdenv.isDarwin # http://hackage.haskell.org/trac/ghc/ticket/4013
+# For GHC 8.0.2 we use split-sections instead
+# Unsupported for Darwin/Clang, see http://hackage.haskell.org/trac/ghc/ticket/4013
+, enableSplitObjs ? (!stdenv.isDarwin && (stdenv.lib.versionAtLeast "8.0.1" ghc.version))
+, enableSplitSections ? (!stdenv.isDarwin && (stdenv.lib.versionOlder "8.0.1" ghc.version))
 , enableStaticLibraries ? true
 , extraLibraries ? [], librarySystemDepends ? [], executableSystemDepends ? []
 , homepage ? "http://hackage.haskell.org/package/${pname}"
@@ -114,6 +117,8 @@ let
     (optionalString (isGhcjs || versionOlder "7" ghc.version) (enableFeature enableStaticLibraries "library-vanilla"))
     (optionalString (isGhcjs || versionOlder "7.4" ghc.version) (enableFeature enableSharedExecutables "executable-dynamic"))
     (optionalString (isGhcjs || versionOlder "7" ghc.version) (enableFeature doCheck "tests"))
+  ] ++ optionals enableSplitSections [
+     "--ghc-option=-split-sections"
   ] ++ optionals isGhcjs [
     "--with-hsc2hs=${nativeGhc}/bin/hsc2hs"
     "--ghcjs"
