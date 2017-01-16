@@ -16175,7 +16175,7 @@ in {
     blas = pkgs.openblasCompat;
   };
 
-  numpy = self.numpy_1_11;
+  numpy = self.numpy_1_12;
 
   numpy_1_10 = self.buildNumpyPackage rec {
     version = "1.10.4";
@@ -16190,6 +16190,14 @@ in {
     src = pkgs.fetchurl {
       url = "mirror://pypi/n/numpy/numpy-${version}.zip";
       sha256 = "2e0fc5248246a64628656fe14fcab0a959741a2820e003bd15538226501b82f7";
+    };
+  };
+
+  numpy_1_12 = self.buildNumpyPackage rec {
+    version = "1.12.0";
+    src = pkgs.fetchurl {
+      url = "mirror://pypi/n/numpy/numpy-${version}.zip";
+      sha256 = "ff320ecfe41c6581c8981dce892fe6d7e69806459a899e294e4bf8229737b154";
     };
   };
 
