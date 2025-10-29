@@ -10,20 +10,24 @@
   # requiring to build a special variant for that software. Example: 'haproxy'
   variant ? "all",
   extraConfigureFlags ? [ ],
-  enableARMCryptoExtensions ?
-    stdenv.hostPlatform.isAarch64
-    && ((builtins.match "^.*\\+crypto.*$" stdenv.hostPlatform.gcc.arch) != null),
+  enableARMCryptoExtensions ? true,
   enableLto ? !(stdenv.hostPlatform.isStatic || stdenv.cc.isClang),
 }:
+
+let
+  hasARMCryptoExtensions = stdenv.hostPlatform.isAarch64
+    && ((builtins.match "^.*\\+crypto.*$" stdenv.hostPlatform.gcc.arch) != null);
+in
 stdenv.mkDerivation (finalAttrs: {
   pname = "wolfssl-${variant}";
-  version = "5.8.2";
+  version = "unstable-5.8.2-2025-10-28";
 
   src = fetchFromGitHub {
     owner = "wolfSSL";
     repo = "wolfssl";
-    tag = "v${finalAttrs.version}-stable";
-    hash = "sha256-rWBfpI6tdpKvQA/XdazBvU5hzyai5PtKRBpM4iplZDU=";
+    #tag = "v${finalAttrs.version}-stable";
+    rev = "d7807d39e07e74460e05e388a7cbff9360874b21";
+    hash = "sha256-zAb4yAqqv8GrIJdne7UfF+A6UM4D0hX+M89km9gUHQ8=";
   };
 
   postPatch = ''
@@ -62,8 +66,11 @@ stdenv.mkDerivation (finalAttrs: {
     "--enable-aesni"
   ]
   ++ lib.optionals (stdenv.hostPlatform.isAarch64) [
-    # No runtime detection under ARM and no platform function checks like for X86.
-    (if enableARMCryptoExtensions then "--enable-armasm=inline" else "--disable-armasm")
+    # After 5.7.6 + PR 8325, there is ARM CPUID detection. It doesn't fall back with "inline" though,
+    # so only enable it if explicitly enabled in the CPU target.
+    (if enableARMCryptoExtensions
+      then "--enable-armasm=${if hasARMCryptoExtensions then "inline" else "yes"}"
+      else "--disable-armasm")
   ]
   ++ extraConfigureFlags;
 
@@ -73,7 +80,11 @@ stdenv.mkDerivation (finalAttrs: {
   ];
 
   # LTO should help with the C implementations.
-  env.NIX_CFLAGS_COMPILE = lib.optionalString enableLto "-flto";
+  env.NIX_CFLAGS_COMPILE =
+    (lib.optionalString (stdenv.hostPlatform.isAarch64 && enableARMCryptoExtensions && !hasARMCryptoExtensions)
+      "-march=${stdenv.hostPlatform.gcc.arch}+crypto")
+    + (lib.optionalString enableLto " -flto");
+
   env.NIX_LDFLAGS_COMPILE = lib.optionalString enableLto "-flto";
 
   # Don't attempt connections to external services in the test suite.
